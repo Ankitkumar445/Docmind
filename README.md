@@ -1,162 +1,350 @@
-# DocMind — Multi-Agent RAG Assistant with Guardrails
+# 🧠 DocMind
 
-A small, fully-working project built to map directly onto the Cognizant Ace
-Team (Ace Frontier Engineer) skills list: RAG pipelines, vector stores,
-LangChain, multi-agent coordination, prompt engineering with structured
-outputs, guardrails/AI quality, and a REST API.
+### Multi-Agent RAG Assistant with AI Guardrails
 
-## 1. What it does
+DocMind is a lightweight **Retrieval-Augmented Generation (RAG) assistant** that lets users upload PDF/TXT documents and ask questions about their content.
 
-1. You upload a document (txt/pdf).
-2. It gets chunked and embedded (FastEmbed) and stored in a vector store you
-   can inspect and search directly.
-3. You ask a question in the chat UI.
-4. Three agents run in sequence:
-   - **Router agent** — decides if the question needs a document lookup, and
-     rewrites it into a cleaner search query.
-   - **Answer agent** — generates an answer using ONLY the retrieved chunks
-     (grounded generation, not free recall).
-   - **Guardrail agent** — independently checks whether the answer is
-     actually supported by the retrieved context, and returns a confidence
-     score and reason.
-5. The UI shows the answer, the sources used, the guardrail verdict, and the
-   latency of the whole pipeline.
+It combines **document processing, embeddings, vector similarity search, an LLM, LangChain, multi-agent coordination, structured outputs, and AI guardrails** to generate and validate document-grounded answers.
 
-## 2. Why it's built this way (architecture reasoning)
+![Python](https://img.shields.io/badge/Python-3.x-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-- **Manual cosine-similarity vector store instead of FAISS/Pinecone** — you
-  already understand embeddings + cosine similarity from your DSA/RAG
-  practice. This project makes that mechanism visible instead of hiding it
-  behind a library, which is exactly what you want to be able to explain
-  line-by-line in an interview.
-- **Three single-purpose agents instead of one big prompt** — easier to
-  test, debug, and reason about. Each agent takes structured input and
-  returns structured JSON, not paragraphs — this is what "prompt
-  engineering & structured outputs" means in the JD.
-- **A dedicated guardrail step** — this is the part most student projects
-  skip, and it's called out explicitly in the JD ("validate AI-generated
-  outputs, implement guardrails, ensure reliable AI operations"). It also
-  gives you a natural interview story about hallucination and reliability.
-- **LangChain used specifically for conversation memory** — rather than
-  bolting LangChain onto everything, it's used where it earns its place:
-  managing multi-turn chat history.
+---
 
-## 3. Setup (free — Gemini's free tier, no credit card required)
+## 🚀 Features
 
-**Step 1 — Get a free Gemini API key:**
-Go to https://aistudio.google.com/apikey, sign in with a Google account, and
-click "Create API key." No billing/credit card needed for the free tier
-(`gemini-2.0-flash`, which this project uses, has a generous free daily
-request limit — plenty for testing and demoing this project).
+- 📄 Upload PDF and TXT documents
+- 🧩 Automatic document chunking
+- 🧠 Text embeddings using FastEmbed
+- 🔎 Semantic search using cosine similarity
+- 🤖 Multi-agent RAG workflow
+- 🧭 Query routing and rewriting
+- 💬 Document-grounded answers using an LLM
+- 🛡️ Dedicated AI guardrail for answer validation
+- 📊 Confidence score and validation reasoning
+- 📚 Retrieved source references
+- 🧾 Structured JSON communication between agents
+- 💭 Multi-turn conversation support
+- ⚡ Pipeline latency tracking
+- 🔌 FastAPI REST API
+- 🌐 Browser-based chat interface
 
-**Step 2 — Set the key as an environment variable:**
+---
 
-Windows (PowerShell):
-```powershell
-$env:GEMINI_API_KEY="your-key-here"
+## 🤖 Multi-Agent Workflow
+
+DocMind uses **three specialized agents** working together with a vector retrieval layer:
+
+```
+USER QUESTION
+      │
+      ▼
+┌─────────────────┐
+│  ROUTER AGENT    │  → decides if retrieval is needed, rewrites query
+└─────────────────┘
+      │
+      ▼
+┌─────────────────┐
+│ QUERY EMBEDDING  │
+└─────────────────┘
+      │
+      ▼
+┌─────────────────┐
+│  VECTOR SEARCH   │  → cosine similarity, top-k relevant chunks
+└─────────────────┘
+      │
+      ▼
+┌─────────────────┐
+│  ANSWER AGENT    │  → question + retrieved context → grounded answer
+└─────────────────┘
+      │
+      ▼
+┌─────────────────┐
+│ GUARDRAIL AGENT  │  → checks support, confidence, reasoning
+└─────────────────┘
+      │
+      ▼
+┌─────────────────┐
+│ FINAL RESPONSE   │  → answer + sources + verdict + confidence + latency
+└─────────────────┘
 ```
 
-Mac/Linux:
+### 1. Router Agent
+
+Receives the user's question and determines whether document retrieval is required. If so, it rewrites the question into a cleaner search query.
+
+```json
+{
+  "needs_retrieval": true,
+  "search_query": "company revenue previous year"
+}
+```
+
+### 2. Vector Retrieval
+
+The rewritten query is converted into an embedding and compared against document chunk embeddings using cosine similarity to retrieve the most relevant chunks.
+
+```
+User Query → Query Embedding → Cosine Similarity → Top-k Relevant Chunks
+```
+
+### 3. Answer Agent
+
+Receives the user question and the retrieved document chunks, then generates an answer using the retrieved context as its primary source of information.
+
+```
+Question + Retrieved Context → Answer Agent → Grounded Answer
+```
+
+### 4. Guardrail Agent
+
+Independently evaluates the generated answer against the retrieved context. It checks whether the answer is supported, whether unsupported claims exist, and produces a confidence score and reasoning.
+
+```json
+{
+  "supported": true,
+  "confidence": 0.91,
+  "reason": "The answer is supported by the retrieved document context."
+}
+```
+
+The final response contains both the generated answer and the guardrail information.
+
+---
+
+## 📚 Document Processing Pipeline
+
+**Ingestion:**
+
+```
+PDF / TXT → Text Extraction → Document Chunking → Embedding Generation → Vector Store
+```
+
+**Query time:**
+
+```
+User Question → Router Agent → Query Rewriting → Query Embedding
+→ Cosine Similarity Search → Top-k Relevant Chunks
+→ Answer Agent → Guardrail Agent → Final Response
+```
+
+---
+
+## 🔎 Vector Search
+
+DocMind currently uses an **in-memory vector store** with cosine similarity. The query is converted into an embedding and compared with the embeddings of stored document chunks, and the most relevant chunks are passed to the Answer Agent.
+
+```
+              A · B
+cosine(A,B) = ─────────────
+              ||A|| ||B||
+```
+
+This keeps the retrieval mechanism simple and transparent. A production version could swap the in-memory store for **FAISS**, **pgvector**, **Pinecone**, or another vector database.
+
+---
+
+## 🛡️ AI Guardrails
+
+DocMind does not blindly return the LLM-generated answer. Instead, it performs an additional validation step:
+
+```
+Retrieved Context + Generated Answer → Guardrail Agent → Supported / Unsupported + Confidence + Reason
+```
+
+This adds a layer for detecting unsupported responses and reducing hallucination risk.
+
+> **Note:** The guardrail itself uses an LLM, so it is not a perfect guarantee against hallucinations. A production system would need additional evaluation, monitoring, and auditing.
+
+---
+
+## 🛠️ Tech Stack
+
+| Category      | Technologies              |
+|---------------|----------------------------|
+| Language      | Python                     |
+| Backend       | FastAPI, Uvicorn           |
+| LLM           | Groq API                   |
+| Embeddings    | FastEmbed                  |
+| AI Framework  | LangChain                  |
+| Retrieval     | Cosine Similarity          |
+| Vector Store  | In-memory                  |
+| Frontend      | HTML, CSS, JavaScript      |
+| API           | REST                       |
+
+---
+
+## 📁 Project Structure
+
+```
+DocMind/
+│
+├── backend/
+│   ├── app.py
+│   ├── requirements.txt
+│   │
+│   └── rag/
+│       ├── agents.py
+│       ├── ingest.py
+│       └── vectorstore.py
+│
+├── frontend/
+│   └── index.html
+│
+└── README.md
+```
+
+---
+
+## ⚙️ Installation & Setup
+
+### Prerequisites
+
+- Python 3.x
+- pip
+- A Groq API key
+
+### 1. Clone the repository
+
 ```bash
-export GEMINI_API_KEY=your-key-here
+git clone YOUR_GITHUB_REPOSITORY_URL
+cd DocMind
 ```
 
-**Step 3 — Install Python deps and start the backend:**
+### 2. Configure your API key
+
+Create an API key and set it as an environment variable.
+
+**Windows PowerShell**
+```powershell
+$env:GROQ_API_KEY="your-api-key"
+```
+
+**macOS / Linux**
+```bash
+export GROQ_API_KEY="your-api-key"
+```
+
+> ⚠️ Never commit your API key to GitHub.
+
+### 3. Install dependencies
+
 ```bash
 cd backend
 pip install -r requirements.txt
+```
+
+### 4. Start the backend
+
+```bash
 uvicorn app:app --reload --port 8000
 ```
 
-Then open `frontend/index.html` directly in your browser (double-click it,
-or serve it with `python -m http.server` from the frontend folder).
+The backend will run at: `http://localhost:8000`
 
-> Note: the `$env:GEMINI_API_KEY` in PowerShell only lasts for that terminal
-> session. If you close and reopen the terminal, you'll need to set it
-> again before running `uvicorn`.
+### 5. Start the frontend
 
-Try it with a small PDF or txt file first — your own resume works well as a
-test document.
+Open `frontend/index.html` directly in your browser, **or** serve it locally:
 
-## 4. How to extend it (good "next steps" to mention in an interview)
+```bash
+cd frontend
+python -m http.server 5500
+```
 
-- Swap the manual vector store for FAISS (`langchain_community.vectorstores.FAISS`)
-  — same interface, so it's a one-file change. Good way to show you
-  understand the abstraction, not just one implementation.
-- Add a second retrieval tool (e.g. web search) and let the router agent
-  choose between "search my documents" vs "search the web" — this turns it
-  into a true multi-tool agent.
-- Add OpenTelemetry tracing around each agent call for real observability
-  (the JD explicitly lists OpenTelemetry/AgentOps).
-- Containerize with a Dockerfile + docker-compose for backend/frontend
-  (covers "Containers & cloud-native services").
+Then open: `http://localhost:5500`
 
-## 5. Resume bullets you can use
+---
 
-- "Built a multi-agent RAG assistant (Python, FastAPI, LangChain) with a
-  dedicated guardrail agent that validates every AI-generated answer
-  against retrieved source documents before returning it to the user."
-- "Implemented a from-scratch vector similarity search (embeddings +
-  cosine similarity) and a 3-agent pipeline (router → retriever → answer →
-  guardrail) with structured JSON communication between agents."
-- "Designed the system for observability, logging per-agent latency and
-  guardrail confidence scores on every request."
+## 🧪 How to Use
 
-## 6. Interview Q&A prep (things you'll likely be asked)
+1. Start the FastAPI backend.
+2. Open the frontend.
+3. Upload a PDF or TXT document.
+4. Wait for document processing.
+5. Ask a question about the uploaded document.
+6. The Router Agent analyzes the question.
+7. Relevant document chunks are retrieved.
+8. The Answer Agent generates a grounded response.
+9. The Guardrail Agent validates the response.
+10. The UI displays the answer, sources, confidence, and latency.
 
-**Q: Walk me through what happens when a user asks a question.**
-A: The router agent first decides if retrieval is even needed and rewrites
-the query for search. If retrieval is needed, I embed the query, compute
-cosine similarity against all stored chunk embeddings, and take the top-4.
-Those chunks go into the answer agent's prompt as the *only* source of
-truth — the system prompt explicitly forbids answering outside that
-context. Then a separate guardrail agent, which never sees the retrieval
-step, independently checks whether the answer is actually backed by the
-context and returns a confidence score.
+---
 
-**Q: Why did you separate the answer agent and the guardrail agent instead
-of asking one model to "answer carefully"?**
-A: A model grading its own answer in the same turn is prone to confirming
-its own mistake. A separate call, with a separate narrow prompt whose only
-job is fact-checking, is a cheap and effective way to catch hallucinations
-— similar in spirit to LLM-as-judge evaluation patterns used in production
-RAG systems.
+## 🔌 API Endpoints
 
-**Q: What are the failure modes of this design?**
-A: Chunking can split a fact across two chunks so neither ranks highly
-enough to be retrieved (I mitigate this with overlap). The guardrail agent
-is itself an LLM call, so it can also be wrong — in production I'd want to
-sample-audit guardrail decisions, not fully trust them. Cosine similarity
-over dense embeddings can also miss purely keyword/exact-match queries
-(e.g., an exact product ID) — a production system would combine this with
-BM25/keyword search (hybrid retrieval).
+| Endpoint    | Method | Description                       |
+|-------------|--------|------------------------------------|
+| `/ingest`   | POST   | Upload and process a document      |
+| `/chat`     | POST   | Ask questions using the RAG pipeline |
+| `/history`  | GET    | Retrieve conversation history      |
 
-**Q: How would you scale this?**
-A: Swap the in-memory numpy store for a real vector DB (FAISS index or
-managed Pinecone/pgvector) so it doesn't need to hold everything in RAM,
-add caching for repeated queries, and move the three sequential agent calls
-to run the guardrail check in parallel with returning a "pending" response
-that gets validated after the fact for latency-sensitive use cases.
+For exact request/response formats, see [`backend/app.py`](backend/app.py).
 
-**Q: Why did you use Gemini's free tier instead of a paid API like GPT-4 or
-Claude?**
-A: To build and iterate without incurring cost during development —
-Gemini's free tier is generous enough for a personal project like this. The
-important design decision is that the LLM call sits behind one function
-(`_call_llm`), so swapping to a different provider (Claude, GPT-4, a local
-Ollama model) is a one-function change; nothing else in the pipeline —
-routing logic, retrieval, guardrail checks — depends on which model is
-behind it.
+---
 
-## 7. Mapping to the Ace Frontier Engineer JD
+## ⚡ Observability
 
-| JD skill                              | Where it shows up in this project              |
-|----------------------------------------|-------------------------------------------------|
-| RAG Pipelines                          | `rag/ingest.py`, `rag/vectorstore.py`            |
-| Vector DB concepts                     | Cosine-similarity store, with a documented FAISS swap path |
-| LangChain                              | `ConversationBufferMemory` in `app.py`           |
-| Multi-Agent Coordination                | `rag/agents.py` — router/answer/guardrail agents |
-| Prompt Engineering & Structured Outputs | JSON-only agent responses                        |
-| Guardrails / Responsible AI             | Dedicated guardrail agent                        |
-| REST APIs                              | FastAPI (`/ingest`, `/chat`, `/history`)         |
-| AI Quality Metrics / Observability      | Per-agent latency + confidence logging (`trace`) |
+DocMind tracks basic pipeline information, including:
+
+- Agent execution latency
+- Overall request latency
+- Guardrail confidence
+- Guardrail reasoning
+
+This gives visibility into both system performance and AI response validation.
+
+---
+
+## 🎯 Design Decisions
+
+**Why RAG?**
+RAG lets the LLM use information retrieved from the uploaded documents instead of relying only on its pretrained knowledge, producing answers grounded in the user's own data.
+
+**Why multiple agents?**
+Instead of one large prompt handling everything, DocMind separates responsibilities:
+
+```
+Router → Retrieval → Answer → Guardrail
+```
+
+This makes each component easier to understand, test, and debug.
+
+**Why a manual vector store?**
+Keeping the embedding and similarity-search mechanism visible (rather than hidden behind a managed vector database) makes it easier to understand how semantic retrieval actually works.
+
+**Why a separate guardrail agent?**
+The Answer Agent is responsible for generating a response. The Guardrail Agent has a different job: validating whether that response is actually supported by the retrieved context. Separating these adds an independent validation layer.
+
+---
+
+## ⚠️ Current Limitations
+
+- Vector data is stored in memory only
+- Retrieval currently uses cosine similarity only
+- No hybrid BM25 + semantic retrieval
+- Guardrail decisions rely on an LLM
+- No persistent vector database
+- No authentication layer
+- Not designed for large-scale production workloads
+
+---
+
+## 🔮 Future Improvements
+
+- [ ] Replace in-memory vector store with FAISS or pgvector
+- [ ] Add hybrid BM25 + semantic retrieval
+- [ ] Add web-search tool
+- [ ] Add OpenTelemetry tracing
+- [ ] Add AI evaluation metrics
+- [ ] Add token and cost tracking
+- [ ] Add Docker support
+- [ ] Add authentication
+- [ ] Add persistent conversation storage
+- [ ] Add automated RAG evaluation
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
