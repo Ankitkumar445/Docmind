@@ -404,8 +404,10 @@
   <script>
     // ⚠️ Before deploying: change this to your deployed backend's URL,
     // e.g. "https://docmind-backend.onrender.com" — no trailing slash.
-    const API = "http://localhost:8000";
+    //const API = "http://localhost:8000";
 
+    const API_URL = "https://docmind-vb8j.onrender.com";
+    
     async function uploadFile() {
       const fileInput = document.getElementById("file");
       const status = document.getElementById("uploadStatus");
@@ -417,7 +419,7 @@
       status.classList.add("pending");
       btn.disabled = true;
       try {
-        const res = await fetch(`${API}/ingest`, { method: "POST", body: formData });
+        const res = await fetch(`${API_URL}/ingest`, { method: "POST", body: formData });
         const data = await res.json();
         status.classList.remove("pending");
         status.textContent = `Filed — ${data.chunks_added} entries from “${data.filename}”`;
@@ -442,7 +444,7 @@
       sendBtn.disabled = true;
 
       try {
-        const res = await fetch(`${API}/chat`, {
+        const res = await fetch(`${API_URL}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: q })
