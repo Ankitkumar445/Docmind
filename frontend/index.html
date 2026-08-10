@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocMind — Verified document Q&amp;A</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #12141b;
+    --ink-panel: #1a1d27;
+    --ink-line: #2a2e3b;
+    --paper: #f2ecdc;
+    --paper-line: #ddd2ab;
+    --text-ink: #23261f;
+    --text-onink: #e9e6da;
+    --muted: #8d8873;
+    --muted-onink: #9296a6;
+    --brass: #c9a227;
+    --brass-bright: #e0bc4a;
+    --verified: #3e7c59;
+    --unverified: #b4472f;
+  }
+
+  * { box-sizing: border-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(201,162,39,0.06), transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(201,162,39,0.05), transparent 45%);
+    color: var(--text-onink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px 60px;
+  }
+
+  .app { width: 100%; max-width: 760px; }
+
+  /* ---------- Header ---------- */
+  header {
+    padding-bottom: 22px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--ink-line);
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-family: 'Zilla Slab', serif;
+    font-weight: 700;
+    font-size: 34px;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    color: var(--text-onink);
+  }
+
+  h1 span { color: var(--brass-bright); }
+
+  .subhead {
+    margin: 0 0 16px;
+    color: var(--muted-onink);
+    font-size: 14.5px;
+    line-height: 1.55;
+    max-width: 56ch;
+  }
+
+  /* Pipeline strip -- this is a real sequence (the actual agent order), so
+     numbering here encodes true information rather than decorating. */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-onink);
+    flex-wrap: wrap;
+  }
+  .pipeline .step {
+    padding: 4px 9px;
+    border: 1px solid var(--ink-line);
+    border-radius: 3px;
+    background: var(--ink-panel);
+  }
+  .pipeline .arrow { color: var(--brass); opacity: 0.7; }
+
+  /* ---------- Intake tray (upload) ---------- */
+  .intake {
+    border: 1.5px dashed #3a3f4e;
+    border-radius: 6px;
+    background: var(--ink-panel);
+    padding: 16px 18px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .intake:focus-within, .intake.drag {
+    border-color: var(--brass);
+    background: #1e2130;
+  }
+
+  .intake-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-onink);
+    white-space: nowrap;
+  }
+
+  input[type=file] {
+    color: var(--muted-onink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    max-width: 220px;
+  }
+  input[type=file]::file-selector-button {
+    background: transparent;
+    color: var(--brass-bright);
+    border: 1px solid var(--brass);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    margin-right: 10px;
+  }
+
+  .btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 9px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--brass);
+    background: var(--brass);
+    color: #1a1204;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover { background: var(--brass-bright); box-shadow: 0 0 0 3px rgba(201,162,39,0.18); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+  .btn:focus-visible { outline: 2px solid var(--brass-bright); outline-offset: 2px; }
+
+  .catalog-entry {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--verified);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .catalog-entry.pending { color: var(--brass-bright); }
+
+  /* ---------- Reading room (chat) ---------- */
+  .reading-room {
+    background: var(--ink-panel);
+    border: 1px solid var(--ink-line);
+    border-radius: 8px;
+    min-height: 380px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .empty-state {
+    margin: auto;
+    text-align: center;
+    color: var(--muted-onink);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    font-style: italic;
+    max-width: 34ch;
+    line-height: 1.6;
+  }
+
+  /* User query -- styled like a request slip, right-aligned */
+  .query-slip {
+    align-self: flex-end;
+    max-width: 78%;
+    background: #232735;
+    border: 1px solid var(--ink-line);
+    border-left: 3px solid var(--brass);
+    border-radius: 3px;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-onink);
+    animation: slip-in 0.25s ease;
+  }
+
+  /* Bot answer -- an index card pulled from the catalog */
+  .index-card {
+    align-self: flex-start;
+    max-width: 92%;
+    background: var(--paper);
+    color: var(--text-ink);
+    border-radius: 3px;
+    padding: 16px 18px 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+    position: relative;
+    animation: slip-in 0.28s ease;
+  }
+  .index-card::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 38px;
+    border-top: 1px dashed var(--paper-line);
+  }
+  .card-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #a3673a;
+    margin-bottom: 6px;
+  }
+  .card-body {
+    font-size: 14.5px;
+    line-height: 1.6;
+    margin-top: 14px;
+  }
+
+  .card-footer {
+    margin-top: 14px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 60%;
+  }
+  .source-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    background: #e7dfc4;
+    border: 1px solid var(--paper-line);
+    color: #5c5738;
+    padding: 3px 7px;
+    border-radius: 3px;
+  }
+  .no-sources {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: #a3673a;
+    font-style: italic;
+  }
+
+  /* The signature element: a stamped guardrail verdict */
+  .stamp {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+    transform: rotate(-6deg);
+    display: inline-block;
+    animation: stamp-down 0.3s cubic-bezier(.36,1.6,.5,1);
+    white-space: nowrap;
+  }
+  .stamp.verified { color: var(--verified); }
+  .stamp.unverified { color: var(--unverified); }
+  .stamp .conf { opacity: 0.75; font-weight: 400; margin-left: 4px; }
+
+  .timing {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  .thinking {
+    align-self: flex-start;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--muted-onink);
+  }
+  .thinking::after {
+    content: '▌';
+    animation: blink 1s step-start infinite;
+    margin-left: 3px;
+  }
+
+  @keyframes slip-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes stamp-down {
+    0% { opacity: 0; transform: rotate(-6deg) scale(1.6); }
+    60% { opacity: 1; }
+    100% { opacity: 1; transform: rotate(-6deg) scale(1); }
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---------- Request slip (input row) ---------- */
+  .request-row {
+    display: flex;
+    gap: 10px;
+  }
+  input[type=text] {
+    flex: 1;
+    background: var(--ink-panel);
+    border: 1px solid var(--ink-line);
+    border-radius: 5px;
+    color: var(--text-onink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14.5px;
+    padding: 13px 14px;
+  }
+  input[type=text]::placeholder { color: var(--muted-onink); }
+  input[type=text]:focus-visible {
+    outline: none;
+    border-color: var(--brass);
+    box-shadow: 0 0 0 3px rgba(201,162,39,0.16);
+  }
+
+  footer {
+    margin-top: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--muted-onink);
+    text-align: center;
+    letter-spacing: 0.03em;
+  }
+
+  @media (max-width: 520px) {
+    h1 { font-size: 27px; }
+    .intake { flex-direction: column; align-items: stretch; }
+    .sources { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <p class="eyebrow">Retrieval-augmented · multi-agent · guardrailed</p>
+      <h1>Doc<span>Mind</span></h1>
+      <p class="subhead">Upload a document. Ask about it. Every answer is checked against the retrieved source before it reaches you — nothing is filed without a stamp.</p>
+      <div class="pipeline">
+        <span class="step">1 · Route</span><span class="arrow">→</span>
+        <span class="step">2 · Retrieve</span><span class="arrow">→</span>
+        <span class="step">3 · Answer</span><span class="arrow">→</span>
+        <span class="step">4 · Verify</span>
+      </div>
+    </header>
+
+    <div class="intake" id="intake">
+      <span class="intake-label">Intake</span>
+      <input type="file" id="file" />
+      <button class="btn" id="ingestBtn" onclick="uploadFile()">Ingest document</button>
+      <span class="catalog-entry" id="uploadStatus"></span>
+    </div>
+
+    <div class="reading-room" id="chat">
+      <div class="empty-state" id="emptyState">No entries in the record yet.<br>Ingest a document, then ask your first question.</div>
+    </div>
+
+    <div class="request-row">
+      <input type="text" id="query" placeholder="Ask a question about the document…" onkeydown="if(event.key==='Enter') sendQuery()"/>
+      <button class="btn" id="sendBtn" onclick="sendQuery()">Submit</button>
+    </div>
+
+    <footer>DocMind — built on FastAPI · LangChain · Gemini</footer>
+  </div>
+
+  <script>
+    // ⚠️ Before deploying: change this to your deployed backend's URL,
+    // e.g. "https://docmind-backend.onrender.com" — no trailing slash.
+    const API = "http://localhost:8000";
+
+    async function uploadFile() {
+      const fileInput = document.getElementById("file");
+      const status = document.getElementById("uploadStatus");
+      const btn = document.getElementById("ingestBtn");
+      if (!fileInput.files.length) return;
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      status.textContent = "Cataloguing…";
+      status.classList.add("pending");
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API}/ingest`, { method: "POST", body: formData });
+        const data = await res.json();
+        status.classList.remove("pending");
+        status.textContent = `Filed — ${data.chunks_added} entries from “${data.filename}”`;
+      } catch (err) {
+        status.classList.remove("pending");
+        status.textContent = "Could not reach the backend. Is uvicorn running?";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function sendQuery() {
+      const input = document.getElementById("query");
+      const q = input.value.trim();
+      if (!q) return;
+      document.getElementById("emptyState")?.remove();
+      appendQuery(q);
+      input.value = "";
+
+      const thinking = appendThinking();
+      const sendBtn = document.getElementById("sendBtn");
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch(`${API}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: q })
+        });
+        const data = await res.json();
+        thinking.remove();
+        appendAnswer(data);
+      } catch (err) {
+        thinking.remove();
+        appendAnswer({
+          answer: "Could not reach the backend. Confirm uvicorn is running on port 8000.",
+          guardrail: { supported: false, confidence: 0, reason: "connection error" },
+          sources: [], total_latency_ms: 0
+        });
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    function appendQuery(text) {
+      const chat = document.getElementById("chat");
+      const div = document.createElement("div");
+      div.className = "query-slip";
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function appendThinking() {
+      const chat = document.getElementById("chat");
+      const div = document.createElement("div");
+      div.className = "thinking";
+      div.textContent = "consulting sources";
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    function appendAnswer(data) {
+      const chat = document.getElementById("chat");
+      const card = document.createElement("div");
+      card.className = "index-card";
+
+      const verified = data.guardrail?.supported;
+      const conf = data.guardrail?.confidence;
+      const confPct = typeof conf === "number" ? Math.round(conf * 100) + "%" : "—";
+
+      const sourcesHtml = (data.sources && data.sources.length)
+        ? `<div class="sources">${data.sources.map(s => `<span class="source-tag">${s.source} · #${s.chunk_id}</span>`).join("")}</div>`
+        : `<span class="no-sources">no matching source found</span>`;
+
+      card.innerHTML = `
+        <div class="card-label">DocMind — response entry</div>
+        <div class="card-body">${escapeHtml(data.answer)}</div>
+        <div class="card-footer">
+          ${sourcesHtml}
+          <span class="stamp ${verified ? 'verified' : 'unverified'}">
+            ${verified ? 'Verified' : 'Unconfirmed'}<span class="conf">${confPct}</span>
+          </span>
+        </div>
+        <div class="timing">${data.total_latency_ms ?? '—'}ms · pipeline: route → retrieve → answer → verify</div>
+      `;
+      chat.appendChild(card);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str ?? "";
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
