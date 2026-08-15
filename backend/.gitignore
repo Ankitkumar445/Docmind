@@ -1,9 +1,5 @@
-@"
-backend/venv/
 venv/
 __pycache__/
 *.pyc
 .env
 *.log
-cat .gitignore
-"@ | Out-File -Encoding utf8 .gitignore
