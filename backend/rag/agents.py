@@ -88,7 +88,7 @@ def _call_llm(system: str, user: str) -> str:
                     "temperature": 0.2,
                     "max_tokens": 500,
                 },
-                timeout=60,
+                timeout=20,
             )
             if not resp.ok:
                 last_error = f"{model} -> {resp.status_code}: {resp.text}"
