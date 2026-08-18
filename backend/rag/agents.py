@@ -88,14 +88,28 @@ def _call_llm(system: str, user: str) -> str:
                     "temperature": 0.2,
                     "max_tokens": 500,
                 },
-                timeout=20,
+                timeout=60,
             )
             if not resp.ok:
                 last_error = f"{model} -> {resp.status_code}: {resp.text}"
                 continue  # try the next model in the fallback chain
 
             data = resp.json()
-            return data["choices"][0]["message"]["content"]
+
+            # OpenRouter sometimes returns HTTP 200 with an error payload
+            # instead of a proper choices array (e.g. rate limits, model
+            # temporarily unavailable, quota issues). Treat that the same
+            # as a failed request so the fallback chain actually kicks in.
+            if "error" in data or "choices" not in data:
+                last_error = f"{model} -> 200 OK but no choices: {data}"
+                continue
+
+            choices = data.get("choices")
+            if not choices:
+                last_error = f"{model} -> empty choices list: {data}"
+                continue
+
+            return choices[0]["message"]["content"]
 
         except requests.exceptions.RequestException as e:
             last_error = f"{model} -> {e}"
