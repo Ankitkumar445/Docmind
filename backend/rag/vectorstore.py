@@ -11,10 +11,21 @@ embed the chunks, embed the query, rank by cosine similarity, return top-k."
 In production you'd swap this class for FAISS / Pinecone / pgvector, but the
 *interface* (add, search) stays identical -- that's the point worth making
 in an interview: the retrieval abstraction shouldn't care which store backs it.
+
+Memory note: the embedding model is loaded LAZILY (on first actual use)
+rather than at __init__ time. On memory-constrained hosts (e.g. Render's
+512MB free tier), this avoids paying the ~150-300MB ONNX model load cost
+immediately at process startup -- it's only paid on the first /ingest or
+/chat call that actually needs embeddings.
 """
 
+import os
+
+# Limit onnxruntime's internal thread pool -- reduces memory overhead from
+# thread stacks on low-memory hosts, at a small cost to embedding speed.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
 import numpy as np
-from fastembed import TextEmbedding
 from dataclasses import dataclass, field
 
 
@@ -28,9 +39,18 @@ class Chunk:
 
 class VectorStore:
     def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5"):
-        self.embedder = TextEmbedding(model_name=model_name)
+        self.model_name = model_name
+        self._embedder = None  # lazy-loaded, see `embedder` property below
         self.chunks: list[Chunk] = []
         self._matrix: np.ndarray | None = None
+
+    @property
+    def embedder(self):
+        """Loads the embedding model on first access only, not at __init__."""
+        if self._embedder is None:
+            from fastembed import TextEmbedding
+            self._embedder = TextEmbedding(model_name=self.model_name)
+        return self._embedder
 
     def _embed(self, texts: list[str]) -> np.ndarray:
         # fastembed returns a generator of np arrays
